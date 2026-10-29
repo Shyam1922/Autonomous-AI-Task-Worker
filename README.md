@@ -14,7 +14,7 @@
 <br />
 <div align="center">
   <!-- Replace this path with the project's final logo when one is added. -->
-  <img src="docs/assets/task-worker-logo.svg" alt="Autonomous AI Task Worker logo" width="88" height="88">
+  <img src="docs/assets/task-worker-logo.svg" alt="TaskPilot-Autonomous AI Task Worker logo" width="88" height="88">
 
   <h1 align="center">Autonomous AI Task Worker</h1>
 
