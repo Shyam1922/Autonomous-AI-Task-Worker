@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { createTask } from "../services/mockTaskEngine";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -66,19 +68,18 @@ const examples = [
 
 export default function Dashboard() {
   const [taskDescription, setTaskDescription] = useState("");
+  const navigate = useNavigate();
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!taskDescription.trim()) {
-      return;
-    }
+    const description = taskDescription.trim();
 
-    // Phase 1: The backend is not connected yet.
-    // In a later phase, this will create a real agent task.
-    alert(
-      `Your task description:\n\n${taskDescription}\n\nThe agent backend will be connected in a later phase.`,
-    );
+    if (!description) return;
+
+    const task = createTask(description);
+
+    navigate(`/tasks/${task.id}`);
   }
 
   function useExample(prompt: string) {

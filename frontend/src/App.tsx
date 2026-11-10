@@ -7,6 +7,8 @@ import Dashboard from "./pages/Dashboard";
 import TaskHistory from "./pages/TaskHistory";
 import Settings from "./pages/Settings";
 
+import TaskExecution from "./pages/TaskExecution";
+
 export default function App() {
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100">
@@ -20,6 +22,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/history" element={<TaskHistory />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/tasks/:taskId" element={<TaskExecution />} />
 
             {/* Redirect unknown routes to the dashboard */}
             <Route path="*" element={<Navigate to="/" replace />} />
