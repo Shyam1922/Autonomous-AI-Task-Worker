@@ -11,3 +11,13 @@ __pycache__/
 
 # Temporary database test
 test_db_connection.py
+
+# Node / frontend build output
+node_modules/
+**/node_modules/
+dist/
+frontend/dist/
+
+# Local databases and test artifacts
+*.db
+*.sqlite3

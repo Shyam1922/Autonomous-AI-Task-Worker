@@ -1,0 +1,13 @@
+INVOICE
+
+Vendor: Initech
+Invoice Number: IT-3001
+Invoice Date: 2026-11-05
+Bill To: TaskPilot Demo Co.
+
+TPS report software licence          1,499.00
+
+Total Due: USD 1,499.00
+
+(Payment terms to be confirmed - this synthetic invoice intentionally has
+no due date so the agent must stop and ask instead of guessing.)

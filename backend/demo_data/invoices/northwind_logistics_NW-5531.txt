@@ -1,0 +1,15 @@
+INVOICE
+
+Vendor: Northwind Logistics
+Invoice Number: NW-5531
+Invoice Date: 2026-10-02
+Due Date: 2026-11-01
+Bill To: TaskPilot Demo Co.
+
+Description                          Amount
+Freight - October consolidated     3,180.50
+Fuel surcharge                       219.50
+
+Total Due: USD 3,400.00
+
+Synthetic document for TaskPilot demos. Not a real invoice.

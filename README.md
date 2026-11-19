@@ -31,7 +31,7 @@
   </p>
 </div>
 
-> **Project status:** Prototype blueprint. The architecture, setup commands, API contract, and roadmap below describe the intended implementation. Update the status badges, commands, screenshots, and completion checkboxes as the code is built and tested.
+> **Project status:** Working prototype. The end-to-end invoice workflow runs: plan → search → extract → duplicate check → approval → write → read-back → independent verification, with a live activity feed in the UI. It runs on Claude (`claude-opus-5-5`) when `ANTHROPIC_API_KEY` is set, or on a deterministic offline mock planner otherwise. See the [Roadmap](#roadmap) for what is still open.
 
 <!-- TABLE OF CONTENTS -->
 <details>
@@ -47,7 +47,7 @@
     <li><a href="#getting-started">Getting Started</a>
       <ul>
         <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#proposed-repository-layout">Proposed Repository Layout</a></li>
+        <li><a href="#repository-layout">Repository Layout</a></li>
         <li><a href="#installation">Installation</a></li>
         <li><a href="#configuration">Configuration</a></li>
       </ul>
@@ -113,7 +113,7 @@ The initial prototype should use **sample invoices and a simulated company appli
 
 ### Built With
 
-The following stack is the **proposed implementation**, not a claim that each component is already integrated.
+Implemented today: Python, FastAPI, Claude API, Pydantic, PostgreSQL (SQLite for tests), React + Vite. Playwright browser tools and PDF parsing are still on the roadmap; the prototype reads text invoices and reaches the simulated finance app through typed API tools.
 
 [![Python][python-shield]][python-url]
 [![FastAPI][fastapi-shield]][fastapi-url]
@@ -127,11 +127,11 @@ The following stack is the **proposed implementation**, not a claim that each co
 |---|---|
 | Python | Agent orchestration, task lifecycle, tool execution, and verification logic |
 | FastAPI | Backend API for creating, inspecting, approving, and cancelling tasks |
-| LLM provider adapter | Goal interpretation, planning, observation analysis, and next-action selection |
+| LLM provider adapter (Claude API + offline mock) | Goal interpretation, planning, observation analysis, and next-action selection |
 | Playwright | Controlled browser interaction and page-state inspection |
 | File tools | Read supported files such as PDF and text documents; extract candidate invoice fields |
 | Pydantic | Validate task definitions, tool arguments, extracted data, and result contracts |
-| SQLite | Persist task records, steps, retries, approvals, and execution events for the prototype |
+| PostgreSQL | Persist tasks, the agent transcript (for resume), approvals, the event log, and the simulated finance app's records |
 | React + Vite | Task submission, live activity feed, approval prompts, and results/evidence view |
 
 A provider adapter should keep model-specific code behind one interface. The agent should not depend on a particular LLM vendor to enforce safety, tool validation, retries, or verification.
@@ -222,72 +222,56 @@ The repository structure and commands below are a suggested scaffold. They becom
 
 The prototype should support a mock/offline mode for testing core orchestration without a live LLM account.
 
-### Proposed Repository Layout
+### Repository Layout
 
 ```text
-autonomous-ai-task-worker/
+TaskPilot/
 ├── backend/
 │   ├── app/
-│   │   ├── api/              # FastAPI routes
-│   │   ├── agent/            # Planner, executor, observer, verifier
-│   │   ├── policies/         # Permissions, approvals, risk rules
-│   │   ├── tools/            # Browser, file, and simulated-app tools
-│   │   ├── schemas/          # Pydantic request and result schemas
-│   │   ├── storage/          # SQLite models and repositories
-│   │   └── main.py           # FastAPI application entry point
-│   ├── tests/
-│   ├── pyproject.toml
+│   │   ├── agent/            # runner (loop), llm (Claude + mock), tools, policy, verifier, manager
+│   │   ├── api/              # FastAPI routes: tasks, SSE stream, approvals, demo env, health
+│   │   ├── services/         # documents (approved source) and finance_app (simulated destination)
+│   │   ├── database/         # SQLAlchemy models and async engine
+│   │   ├── schemas/          # Pydantic request/response schemas
+│   │   └── main.py
+│   ├── demo_data/invoices/   # Synthetic invoices (incl. a quote, a missing due date, a prompt injection)
+│   ├── tests/                # End-to-end agent tests (mock planner + SQLite)
+│   ├── docker-compose.yml    # Local PostgreSQL
+│   ├── requirements.txt
 │   └── .env.example
 ├── frontend/
-│   ├── src/
-│   │   ├── components/       # Task form, timeline, approval and evidence UI
-│   │   ├── pages/
-│   │   └── App.tsx
-│   ├── package.json
-│   └── .env.example
-├── demo/
-│   ├── invoices/             # Synthetic documents only
-│   └── company_app/          # Simulated destination app or API
-├── docs/
-│   ├── architecture.md
-│   └── screenshots/
-├── .gitignore
-├── LICENSE
+│   └── src/
+│       ├── components/       # task, execution (timeline, activity, approvals), evidence
+│       ├── pages/            # Dashboard, TaskExecution, TaskHistory, Settings
+│       ├── services/         # REST client and SSE subscription
+│       ├── store/            # useTask hook (load + live updates)
+│       └── types/
 └── README.md
 ```
 
 ### Installation
 
-#### 1. Clone the repository
-
-```bash
-git clone <your-repository-url>
-cd autonomous-ai-task-worker
-```
-
-Replace `<your-repository-url>` with the URL of your repository.
-
-#### 2. Set up the backend
-
-The commands below assume the backend uses a `pyproject.toml` and `uv`. If the project uses another dependency manager, update these steps to match it.
+#### 1. Start PostgreSQL
 
 ```bash
 cd backend
-# Install uv first if it is not already available.
-uv sync
+docker compose up -d
 ```
 
-Copy `.env.example` to `.env` and configure the required values as described below. Then start the API:
+#### 2. Set up the backend
 
 ```bash
-uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+cd backend
+python -m venv .venv
+.venv\Scripts\activate        # Windows  (macOS/Linux: source .venv/bin/activate)
+pip install -r requirements.txt
+cp .env.example .env          # then add ANTHROPIC_API_KEY to use Claude
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Once the API is running, its interactive documentation should be available at `http://127.0.0.1:8000/docs`.
+Tables are created on startup. Interactive API docs: `http://127.0.0.1:8000/docs`.
 
 #### 3. Set up the frontend
-
-Open a second terminal from the repository root:
 
 ```bash
 cd frontend
@@ -295,44 +279,38 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite. The frontend API base URL should point to the local backend, typically `http://127.0.0.1:8000` during development.
+Open `http://localhost:5173`. Vite proxies `/api` and `/health` to the backend (override with `TASKPILOT_BACKEND_URL`).
 
-#### 4. Install browser support
-
-If the Playwright browser tool is enabled in the backend, install the browser binaries required by the selected Playwright configuration. For example:
+#### 4. Run the tests
 
 ```bash
 cd backend
-uv run playwright install chromium
+pytest -q
 ```
 
-Use only the browser engine and dependencies configured by the implementation.
+The tests use SQLite and the mock planner, so they need neither Docker nor an API key.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Configuration
 
-Use environment variables for provider settings, storage paths, execution limits, and browser configuration. Keep secrets out of source control.
+All settings are environment variables, read from `backend/.env`.
 
-| Variable | Purpose | Example / default |
+| Variable | Purpose | Default |
 |---|---|---|
-| `APP_ENV` | Runtime environment | `development` |
-| `API_HOST` | API bind host | `127.0.0.1` |
-| `API_PORT` | API port | `8000` |
-| `DATABASE_URL` | Task/event database | `sqlite:///./task_worker.db` |
-| `LLM_PROVIDER` | Configured model provider | Provider-specific; implementation-defined |
-| `LLM_API_KEY` | Provider credential | Set in local environment; never commit |
-| `LLM_MODEL` | Model identifier | Provider-specific; implementation-defined |
-| `MAX_STEPS_PER_TASK` | Maximum action count | `30` as an initial development limit |
-| `MAX_RETRIES_PER_STEP` | Retry cap for a step | `2` as an initial development limit |
-| `TOOL_TIMEOUT_SECONDS` | Per-tool timeout | `30` as an initial development limit |
-| `BROWSER_HEADLESS` | Run browser visibly or headlessly | `true` in automated tests |
-| `REQUIRE_APPROVAL_FOR_WRITES` | Pause before write actions | `true` for the first prototype |
-| `CORS_ORIGINS` | Allowed frontend origins | Local frontend origin only |
+| `APP_ENV` | Runtime environment (`development` enables the demo reset endpoint) | `development` |
+| `DATABASE_URL` | Async SQLAlchemy URL | required |
+| `CORS_ORIGINS` | Comma-separated allowed frontend origins | `http://localhost:5173,...` |
+| `LLM_PROVIDER` | `auto` (Claude if a key is set, else mock), `claude`, or `mock` | `auto` |
+| `ANTHROPIC_API_KEY` | Claude API key; never commit it | empty |
+| `LLM_MODEL` | Claude model | `claude-opus-5-5` |
+| `LLM_EFFORT` | `low` / `medium` / `high` / `xhigh` / `max` | `medium` |
+| `MAX_STEPS_PER_TASK` | Hard cap on tool calls per task | `30` |
+| `MAX_RETRIES_PER_STEP` | Consecutive failures allowed per tool before policy denies it | `2` |
+| `TOOL_TIMEOUT_SECONDS` | Per-tool timeout | `30` |
+| `REQUIRE_APPROVAL_FOR_WRITES` | Pause before every write action | `true` |
 
-These values are illustrative defaults for the initial scaffold, not measured performance limits. The backend should validate configuration at startup and fail clearly when a required setting is missing.
-
-Do not store credentials, access tokens, cookies, private customer data, or real invoices in `.env` examples, committed fixtures, screenshots, or logs. Use synthetic data for demos and tests.
+The mock planner only understands the demo invoice workflow. Use Claude for open-ended goals.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -553,48 +531,25 @@ Use synthetic fixtures with known answers, deterministic mock tools, and deliber
 
 ## API
 
-The following endpoints are a proposed API contract. Implementations may change the route names, but should preserve explicit task states and verifiable outcomes.
+Full interactive docs are served at `/docs`.
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /api/v1/tasks` | Create a task from a natural-language goal and optional constraints |
-| `GET /api/v1/tasks/{task_id}` | Get task status, current step, summary, and verification state |
-| `GET /api/v1/tasks/{task_id}/events` | Retrieve ordered task and tool events |
-| `POST /api/v1/tasks/{task_id}/approve` | Approve a specific pending action |
-| `POST /api/v1/tasks/{task_id}/reject` | Reject a pending action and let the task stop or replan |
-| `POST /api/v1/tasks/{task_id}/cancel` | Cancel a running or queued task |
-| `GET /health` | Check API and configured service health |
+| `POST /api/tasks` | Create a task from `{"goal": "..."}`; it starts running in the background |
+| `GET /api/tasks` · `GET /api/tasks/stats` | List tasks / dashboard counts |
+| `GET /api/tasks/{id}` | Status, plan, summary, result, verification, and any pending approval or question |
+| `GET /api/tasks/{id}/events?after=N` | Ordered, redacted audit events |
+| `GET /api/tasks/{id}/stream?after=N` | Server-Sent Events: `event`, `task`, and `end` messages |
+| `POST /api/tasks/{id}/approvals/{request_id}` | `{"decision": "approve" \| "reject", "comment": "..."}` |
+| `POST /api/tasks/{id}/inputs/{request_id}` | Answer an `ask_user` question: `{"answer": "..."}` |
+| `POST /api/tasks/{id}/cancel` · `POST /api/tasks/{id}/retry` | Cancel, or start a fresh run of the same goal |
+| `GET /api/config` | Non-secret runtime configuration |
+| `GET /api/demo/documents` · `GET /api/demo/finance/records` | Inspect the demo environment |
+| `GET /health` · `GET /health/ready` | Liveness / database readiness |
 
-### Example request
+Task statuses: `queued`, `running`, `waiting_approval`, `waiting_input`, `completed`, `partial` (agent claimed success but verification was inconclusive), `blocked`, `failed`, `cancelled`.
 
-```http
-POST /api/v1/tasks
-Content-Type: application/json
-```
-
-```json
-{
-  "goal": "Find the latest Acme Supplies invoice, add it to the demo finance app, and verify the saved values.",
-  "constraints": {
-    "allowed_sources": ["demo/invoices"],
-    "allowed_domains": ["finance-demo.local"],
-    "write_mode": "require_approval"
-  }
-}
-```
-
-### Example task response
-
-```json
-{
-  "task_id": "task_123",
-  "status": "queued",
-  "message": "Task accepted.",
-  "requires_user_action": false
-}
-```
-
-The identifiers and domain above are placeholders. An implementation should validate allowed sources and domains against server-side configuration; a client must not be able to grant itself new permissions by submitting arbitrary constraints.
+Permissions are server-side configuration only; a client cannot widen what the agent may do.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -605,7 +560,7 @@ For a hackathon demo, run the frontend and backend locally and use synthetic dat
 ### Local development
 
 - Run the API on a local interface and restrict CORS to the frontend origin.
-- Store state in a local SQLite database.
+- Store state in the local PostgreSQL container from `backend/docker-compose.yml`.
 - Keep provider keys in environment variables or a secret manager.
 - Run browser automation in an isolated browser profile with no personal saved sessions.
 - Use a simulated finance app and generated sample invoices.
@@ -629,20 +584,23 @@ For a hackathon demo, run the frontend and backend locally and use synthetic dat
 
 The checkboxes describe the proposed development sequence. Mark a feature complete only after its implementation and tests exist.
 
-- [ ] Create the FastAPI backend and React/Vite task interface
-- [ ] Define task, step, tool-result, approval, and evidence schemas
-- [ ] Implement a structured planner with explicit success conditions
-- [ ] Add an allowlisted tool registry with typed arguments and timeouts
-- [ ] Build the simulated finance app and synthetic invoice dataset
-- [ ] Implement PDF/text extraction with validation and source references
+- [x] Create the FastAPI backend and React/Vite task interface
+- [x] Define task, step, tool-result, approval, and evidence schemas
+- [x] Implement a structured planner with explicit success conditions
+- [x] Add an allowlisted tool registry with typed arguments and timeouts
+- [x] Build the simulated finance app and synthetic invoice dataset
+- [x] Implement text extraction with validation and source references
+- [ ] Add PDF extraction
 - [ ] Add Playwright browser actions and observation capture
-- [ ] Implement the observe–act–update execution loop
-- [ ] Persist task state and ordered event logs in SQLite
-- [ ] Add bounded retry logic and safe handling of uncertain write outcomes
-- [ ] Add independent postcondition verification and evidence reporting
-- [ ] Add human approval, rejection, clarification, and cancellation flows
-- [ ] Add deterministic mock mode and repeatable evaluation scenarios
-- [ ] Test prompt injection, duplicate writes, timeouts, and stale browser state
+- [x] Implement the observe–act–update execution loop
+- [x] Persist task state and ordered event logs (PostgreSQL), with resume after restart
+- [x] Add bounded retry logic and safe handling of uncertain write outcomes (idempotent writes)
+- [x] Add independent postcondition verification and evidence reporting
+- [x] Add human approval, rejection, clarification, and cancellation flows
+- [x] Add deterministic mock mode and repeatable test scenarios
+- [x] Test duplicate writes, missing fields, false success claims, path traversal, and retry limits
+- [ ] Add a Claude-backed evaluation run (including the prompt-injection invoice) with recorded metrics
+- [ ] Replace `create_all` with Alembic migrations
 - [ ] Add deployment configuration, authentication, and observability
 - [ ] Evaluate additional tools and integrations after the core workflow is reliable
 
@@ -670,14 +628,13 @@ Contributions are welcome. Keep changes focused, testable, and aligned with the 
 - Do not claim a task is complete without verification evidence.
 - Document any new environment variables and update `.env.example` with safe placeholders only.
 
-Suggested checks once the scaffold is implemented:
+Checks to run before opening a pull request:
 
 ```bash
 # From backend/
-uv run pytest -q
+pytest -q
 
 # From frontend/
-npm run lint
 npm run build
 ```
 

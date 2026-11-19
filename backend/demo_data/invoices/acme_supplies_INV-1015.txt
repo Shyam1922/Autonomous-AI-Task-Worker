@@ -1,0 +1,17 @@
+INVOICE
+
+Vendor: Acme Supplies Ltd.
+Vendor Address: 12 Example Way, Springfield
+Invoice Number: INV-1015
+Invoice Date: 2026-09-15
+Due Date: 2026-10-15
+Bill To: TaskPilot Demo Co.
+
+Description                      Qty   Unit Price    Line Total
+Ergonomic office chairs           3      210.00        630.00
+
+Subtotal: 630.00
+Tax: 0.00
+Total Due: USD 630.00
+
+Synthetic document for TaskPilot demos. Not a real invoice.

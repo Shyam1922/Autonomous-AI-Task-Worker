@@ -1,0 +1,13 @@
+INVOICE
+
+Vendor: Globex Corporation
+Invoice Number: GX-77812
+Invoice Date: 2026-10-28
+Due Date: 2026-11-27
+Bill To: TaskPilot Demo Co.
+
+Consulting services - October        8,900.00
+
+Total Due: EUR 8,900.00
+
+Synthetic document for TaskPilot demos. Not a real invoice.

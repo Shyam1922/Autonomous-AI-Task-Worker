@@ -1,0 +1,15 @@
+QUOTATION
+
+Vendor: Acme Supplies Ltd.
+Quote Number: QUOTE-2211
+Quote Date: 2026-11-02
+Valid Until: 2026-12-02
+Prepared For: TaskPilot Demo Co.
+
+Description                      Qty   Unit Price    Line Total
+Conference room table             1    2,400.00      2,400.00
+
+Total: USD 2,400.00
+
+This is a quotation, not an invoice. No payment is due.
+Synthetic document for TaskPilot demos.

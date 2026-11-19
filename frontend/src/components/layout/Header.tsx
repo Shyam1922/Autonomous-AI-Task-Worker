@@ -9,7 +9,9 @@ const pageTitles: Record<string, string> = {
 
 export default function Header() {
   const location = useLocation();
-  const title = pageTitles[location.pathname] ?? "TaskPilot";
+  const title =
+    pageTitles[location.pathname] ??
+    (location.pathname.startsWith("/tasks/") ? "Task execution" : "TaskPilot");
 
   return (
     <header className="flex h-[76px] items-center justify-between border-b border-white/10 px-6 md:px-8">

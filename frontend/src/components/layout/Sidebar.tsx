@@ -6,7 +6,10 @@ import {
   Settings,
   ShieldCheck,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
+
+import { api, ApiError } from "../../services/api";
 
 const navigation = [
   { name: "Dashboard", path: "/", icon: LayoutDashboard },
@@ -14,7 +17,32 @@ const navigation = [
   { name: "Settings", path: "/settings", icon: Settings },
 ];
 
+type BackendState = "checking" | "ready" | "no_db" | "down";
+
 export default function Sidebar() {
+  const [backend, setBackend] = useState<BackendState>("checking");
+  const [provider, setProvider] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const check = async () => {
+      try {
+        await api.health();
+        if (!active) return;
+        setBackend("ready");
+        if (!provider) setProvider((await api.config()).llm_provider);
+      } catch (err) {
+        if (active) setBackend(err instanceof ApiError && err.status === 503 ? "no_db" : "down");
+      }
+    };
+    check();
+    const timer = window.setInterval(check, 15000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [provider]);
+
   return (
     <aside className="flex min-h-screen w-64 shrink-0 flex-col border-r border-white/10 bg-[#0c0c10] px-4 py-6">
       {/* Brand */}
@@ -68,13 +96,13 @@ export default function Sidebar() {
         </div>
 
         <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
-          <span className="h-2 w-2 rounded-full bg-amber-400" />
-          Development mode
+          <span className={`h-2 w-2 rounded-full ${backend === "ready" ? "bg-emerald-400" : backend === "checking" ? "bg-zinc-500" : "bg-red-400"}`} />
+          {backend === "ready" ? "Backend connected" : backend === "checking" ? "Checking backend..." : backend === "no_db" ? "Database unavailable" : "Backend not reachable"}
         </div>
 
         <div className="flex items-center gap-2 text-xs text-zinc-500">
           <Activity size={14} />
-          Backend not connected
+          {provider ? `Agent: ${provider === "claude" ? "Claude" : "offline mock"}` : "Agent: unknown"}
         </div>
       </div>
 
